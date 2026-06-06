@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>LUMINORA</title>
+
+<style>
+body{
+margin:0;
+min-height:100vh;
+display:flex;
+justify-content:center;
+align-items:center;
+padding-top:100px;
+font-family:Arial;
+color:white;
+transition:0.4s;
+}
+
+.lav{background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);}
+.blue{background:linear-gradient(135deg,#000428,#004e92);}
+
+h1{
+position:absolute;
+top:25px;
+text-shadow:0 0 15px #c77dff;
+}
+
+.settings{
+position:absolute;top:25px;right:25px;
+width:44px;height:44px;border-radius:50%;
+display:flex;align-items:center;justify-content:center;
+background:rgba(255,255,255,0.1);
+box-shadow:0 0 12px #c77dff;cursor:pointer;
+}
+
+.panel{
+position:absolute;top:75px;right:25px;
+background:#1a1a2e;padding:15px;border-radius:12px;
+display:none;box-shadow:0 0 15px #c77dff;
+}
+
+/* ⭐ Responsive container */
+.container{
+width:92%;
+max-width:420px;
+padding:25px;
+border-radius:20px;
+background:rgba(255,255,255,0.05);
+box-shadow:0 0 25px rgba(199,125,255,0.6);
+text-align:center;
+}
+
+input{
+width:90%;
+padding:10px;margin:6px;
+border:none;border-radius:10px;
+background:#1a1a2e;color:white;
+}
+
+button{
+width:95%;padding:10px;margin-top:8px;
+border:none;border-radius:10px;
+background:#7b2cbf;color:white;cursor:pointer;
+}
+
+.switch{margin-top:8px;color:#c77dff;cursor:pointer;font-size:14px}
+
+table{margin:auto;margin-top:12px;border-collapse:collapse}
+td,th{padding:7px;border:1px solid rgba(255,255,255,0.2)}
+
+.log{font-size:12px;margin-top:8px;max-height:80px;overflow:auto;color:#c77dff}
+
+/* ⭐ Timer with glow */
+.timerBox{
+margin:14px 0;
+font-size:30px;
+font-weight:700;
+letter-spacing:2px;
+color:#e0aaff;
+display:flex;
+align-items:center;
+justify-content:center;
+gap:10px;
+background:rgba(199,125,255,0.08);
+padding:10px 14px;
+border-radius:14px;
+font-family:monospace;
+animation:pulse 2.2s infinite;
+}
+
+@keyframes pulse{
+0%{box-shadow:0 0 8px rgba(199,125,255,0.3);}
+50%{box-shadow:0 0 22px rgba(199,125,255,0.9);}
+100%{box-shadow:0 0 8px rgba(199,125,255,0.3);}
+}
+
+/* ⭐ Desktop optimization */
+@media (min-width:900px){
+
+.container{
+max-width:720px;
+padding:35px;
+}
+
+h1{font-size:40px;}
+
+.timerBox{
+font-size:40px;
+padding:16px 24px;
+}
+
+table{font-size:15px;}
+
+}
+</style>
+</head>
+
+<body class="lav">
+
+<h1>LUMINORA</h1>
+
+<div class="settings" onclick="togglePanel()">&#9881;</div>
+
+<div class="panel" id="panel">
+<button onclick="resetHistory()">Reset History</button>
+<button onclick="deleteUsers()">Delete All Users</button>
+<button onclick="exportHistory()">Export History</button>
+<button onclick="toggleTheme()">Toggle Theme</button>
+</div>
+
+<div id="auth" class="container">
+<h2 id="formTitle">Login</h2>
+<input id="user" placeholder="Username">
+<input id="pass" type="password" placeholder="Password">
+<button onclick="submit()">Login</button>
+<div class="switch" onclick="toggle()">New user? Register</div>
+<p id="msg"></p>
+</div>
+
+<div id="dash" class="container" style="display:none">
+<h2 id="welcome"></h2>
+<p>Login Time: <span id="loginTime"></span></p>
+
+<div class="timerBox">
+⏱ <span id="sessionTimer">00:00:00</span>
+</div>
+
+<p>Total Users: <span id="count"></span></p>
+<p>Active Session: <span id="active"></span></p>
+
+<h3>Users</h3>
+<div id="userList"></div>
+
+<button onclick="logout()">Logout</button>
+
+<h3>Session History</h3>
+<table id="history">
+<tr><th>User</th><th>Duration</th><th>Date</th></tr>
+</table>
+
+<div class="log" id="activity"></div>
+</div>
+
+<script>
+let registerMode=false,startTime,currentUser,loginStamp;
+let timerInterval,lastMinute=-1;
+
+function users(){return JSON.parse(localStorage.getItem("users")||"{}");}
+
+function togglePanel(){
+let pin=prompt("Admin PIN");
+if(pin==="1234") panel.style.display=panel.style.display==="block"?"none":"block";
+}
+
+function resetHistory(){localStorage.removeItem("history");location.reload();}
+function deleteUsers(){localStorage.removeItem("users");location.reload();}
+
+function exportHistory(){
+let data=localStorage.getItem("history")||"[]";
+let blob=new Blob([data],{type:"application/json"});
+let a=document.createElement("a");
+a.href=URL.createObjectURL(blob);
+a.download="history.json";
+a.click();
+}
+
+function resetHistory(){
+if(confirm("Reset history?")){
+localStorage.removeItem("history");
+location.reload();
+}
+}
+
+function deleteUsers(){
+if(confirm("Delete all users?")){
+localStorage.removeItem("users");
+location.reload();
+}
+}
+
+function toggleTheme(){
+document.body.classList.toggle("blue");
+document.body.classList.toggle("lav");
+}
+
+function toggle(){
+registerMode=!registerMode;
+formTitle.innerText=registerMode?"Register":"Login";
+document.querySelector("#auth button").innerText=registerMode?"Register":"Login";
+document.querySelector(".switch").innerText=registerMode?"Already registered? Login":"New user? Register";
+}
+
+function startSessionTimer(){
+timerInterval=setInterval(()=>{
+let totalSec=Math.floor((Date.now()-startTime)/1000);
+
+let hrs=String(Math.floor(totalSec/3600)).padStart(2,'0');
+let mins=String(Math.floor((totalSec%3600)/60)).padStart(2,'0');
+let secs=String(totalSec%60).padStart(2,'0');
+
+sessionTimer.innerText=hrs+":"+mins+":"+secs;
+
+let currentMinute=Math.floor(totalSec/60);
+if(currentMinute!==lastMinute){
+document.querySelector(".timerBox").style.animation="none";
+setTimeout(()=>document.querySelector(".timerBox").style.animation="pulse 2.2s infinite",50);
+lastMinute=currentMinute;
+}
+
+},1000);
+}
+
+function submit(){
+let u=user.value,p=pass.value,data=users();
+
+if(registerMode){
+if(data[u]){msg.innerText="User exists";return;}
+data[u]=p;localStorage.setItem("users",JSON.stringify(data));
+msg.innerText="Registered";
+}
+else{
+if(data[u]==p){
+currentUser=u;
+startTime=Date.now();
+loginStamp=new Date().toLocaleTimeString();
+
+auth.style.display="none";dash.style.display="block";
+welcome.innerText="Welcome "+u;
+loginTime.innerText=loginStamp;
+count.innerText=Object.keys(data).length;
+active.innerText="Active ("+u+")";
+
+renderUsers();loadHistory();
+
+startSessionTimer();
+}
+else msg.innerText="Invalid login";
+}
+}
+
+function renderUsers(){
+let data=users(),html="";
+Object.keys(data).forEach(u=>{
+html+=u+" <button onclick=\"delUser('"+u+"')\">Remove</button><br>";
+});
+userList.innerHTML=html;
+}
+
+function delUser(u){
+let data=users();delete data[u];
+localStorage.setItem("users",JSON.stringify(data));
+renderUsers();
+}
+
+function logout(){
+clearInterval(timerInterval);
+
+let totalMin=Math.floor((Date.now()-startTime)/60000);
+let hrs=Math.floor(totalMin/60);
+let mins=totalMin%60;
+
+let h=JSON.parse(localStorage.getItem("history")||"[]");
+h.push({user:currentUser,duration:hrs+" hr "+mins+" min",date:new Date().toLocaleString()});
+localStorage.setItem("history",JSON.stringify(h));
+
+location.reload();
+}
+
+function loadHistory(){
+let h=JSON.parse(localStorage.getItem("history")||"[]");
+let t=document.getElementById("history");
+t.innerHTML="<tr><th>User</th><th>Duration</th><th>Date</th></tr>";
+
+h.slice().reverse().forEach(i=>{
+let r=t.insertRow();
+r.insertCell(0).innerText=i.user;
+r.insertCell(1).innerText=i.duration;
+r.insertCell(2).innerText=i.date;
+});
+}
+</script>
+</body>
+</html>
